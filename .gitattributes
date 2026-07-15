@@ -1,0 +1,9 @@
+# Normaliza quebras de linha: LF no repositorio (bom para Java e CI Linux).
+* text=auto eol=lf
+
+# Scripts do Windows ficam CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# O wrapper do Maven (shell) precisa ser LF para rodar no Linux/CI.
+mvnw text eol=lf

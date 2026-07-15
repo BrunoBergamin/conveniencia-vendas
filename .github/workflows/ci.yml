@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build e testes
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [catalogo-service, vendas-service]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # ubuntu-latest ja tem Docker: os testes de integracao (Testcontainers no
+      # catalogo, Dev Services no vendas) sobem um PostgreSQL de verdade.
+      - name: Build, testes unitarios e de integracao (${{ matrix.service }})
+        working-directory: ${{ matrix.service }}
+        run: |
+          chmod +x mvnw
+          ./mvnw -B --no-transfer-progress verify
+
+      - name: Publicar relatorios de teste
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ matrix.service }}
+          path: ${{ matrix.service }}/target/*-reports/
+          if-no-files-found: ignore
+
+  frontend:
+    name: Frontend (React)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar e buildar
+        working-directory: frontend
+        run: |
+          npm ci || npm install
+          npm run build

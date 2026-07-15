@@ -9,4 +9,5 @@ resources:
   - postgres-vendas.yaml
   - catalogo.yaml
   - vendas.yaml
+  - frontend.yaml
   - ingress.yaml

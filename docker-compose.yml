@@ -32,6 +32,7 @@ services:
       DB_USER: catalogo
       DB_PASSWORD: catalogo
       JWT_SECRET: ${JWT_SECRET:-segredo-de-desenvolvimento-conveniencia-32b+}
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
     ports:
       - "8081:8081"
     depends_on:
@@ -46,6 +47,7 @@ services:
       DB_PASSWORD: vendas
       JWT_SECRET: ${JWT_SECRET:-segredo-de-desenvolvimento-conveniencia-32b+}
       CATALOGO_URL: http://catalogo-service:8081
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
     ports:
       - "8082:8082"
     depends_on:
@@ -53,3 +55,11 @@ services:
         condition: service_healthy
       catalogo-service:
         condition: service_started
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - catalogo-service
+      - vendas-service

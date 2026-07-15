@@ -16,6 +16,11 @@ spring:
 server:
   port: ${SERVER_PORT:8081}
 
+app:
+  cors:
+    # Origens do frontend React (lista separada por virgula). Dev do Vite: 5173.
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
+
 jwt:
   # Em producao vem do Secret do Kubernetes. HS256 exige no minimo 32 bytes.
   secret: ${JWT_SECRET:segredo-de-desenvolvimento-conveniencia-32b+}

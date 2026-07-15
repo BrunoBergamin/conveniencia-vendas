@@ -46,6 +46,11 @@ spec:
                 secretKeyRef:
                   name: conveniencia-secret
                   key: JWT_SECRET
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: conveniencia-config
+                  key: CORS_ORIGINS
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness

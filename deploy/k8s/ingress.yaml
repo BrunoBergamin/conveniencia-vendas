@@ -1,5 +1,5 @@
 # Roteamento por host. Aponte os hosts para o IP do ingress no seu /etc/hosts, ex.:
-#   127.0.0.1 catalogo.conveniencia.local vendas.conveniencia.local
+#   127.0.0.1 app.conveniencia.local catalogo.conveniencia.local vendas.conveniencia.local
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -7,6 +7,16 @@ metadata:
   namespace: conveniencia
 spec:
   rules:
+    - host: app.conveniencia.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
     - host: catalogo.conveniencia.local
       http:
         paths:

@@ -9,6 +9,7 @@ domínio das duas, e preparado para rodar em **Kubernetes**.
 ![Java](https://img.shields.io/badge/Java-21-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3-6DB33F)
 ![Quarkus](https://img.shields.io/badge/Quarkus-3.15-4695EB)
+![React](https://img.shields.io/badge/React-18-61DAFB)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-ready-326CE5)
 ![License](https://img.shields.io/badge/license-MIT-black)
 
@@ -24,15 +25,19 @@ propósito.
 
 ```mermaid
 flowchart LR
-    Cliente([PDV / Frontend]) -->|HTTP + JWT| GW{{Ingress}}
+    Front[frontend\nReact + Vite\nTypeScript] -->|HTTP + JWT| GW{{Ingress}}
     GW --> C[catalogo-service\nSpring Boot 3\nJava 21]
     GW --> V[vendas-service\nQuarkus 3\nJava 21]
     V -->|REST: valida e baixa estoque\ncom fault tolerance| C
     C --- CDB[(PostgreSQL\ncatalogo_db)]
     V --- VDB[(PostgreSQL\nvendas_db)]
-    C -. login emite JWT .-> Cliente
+    C -. login emite JWT .-> Front
     C -. valida JWT .- V
 ```
+
+Um **frontend React** (SPA) consome os dois serviços via REST, com o mesmo JWT.
+Ele faz login, lista produtos, controla o caixa, registra vendas e mostra os
+relatorios.
 
 | Serviço | Stack | Contexto (DDD) | Porta | Responsabilidade |
 |---|---|---|---|---|
@@ -71,14 +76,18 @@ Detalhes das decisões, contexto delimitado e contrato entre serviços em
 
 ### Opção 1: Docker Compose (mais simples)
 
-Sobe os dois bancos e os dois serviços de uma vez.
+Sobe os bancos, os dois serviços e o frontend de uma vez.
 
 ```bash
 docker compose up --build
 ```
 
+- **frontend (PDV):** http://localhost:3000
 - catalogo-service: http://localhost:8081  (Swagger em `/swagger-ui.html`)
 - vendas-service:  http://localhost:8082  (Swagger em `/q/swagger-ui`)
+
+Usuarios da demo: `gerente/gerente123` e `operador/operador123`. Para rodar so o
+front em modo dev: `cd frontend && npm install && npm run dev` (http://localhost:5173).
 
 Um roteiro de uso ponta a ponta (login, criar produto, dar entrada de estoque,
 abrir caixa, registrar venda, ver relatório) está em
@@ -132,6 +141,7 @@ O que este repositório demonstra de propósito:
 conveniencia-vendas/
 ├── catalogo-service/     # Spring Boot 3 (produtos, estoque, auth)
 ├── vendas-service/       # Quarkus 3 (vendas, caixa, relatórios)
+├── frontend/             # React + Vite + TypeScript (PDV)
 ├── deploy/
 │   └── k8s/              # manifestos Kubernetes (kustomize)
 ├── docs/
@@ -143,8 +153,8 @@ conveniencia-vendas/
 
 ## Stack
 
-Java 21, Spring Boot 3, Quarkus 3, PostgreSQL 16, Flyway, Maven, JWT (SmallRye /
-Spring Security), OpenAPI, JUnit 5, Testcontainers, RestAssured, Docker,
+Java 21, Spring Boot 3, Quarkus 3, React 18, Vite, TypeScript, PostgreSQL 16,
+Flyway, Maven, JWT, OpenAPI, JUnit 5, Testcontainers, RestAssured, Docker,
 Kubernetes (kustomize), GitHub Actions.
 
 ## Autor

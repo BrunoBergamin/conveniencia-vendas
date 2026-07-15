@@ -9,6 +9,12 @@ scrape do Prometheus, e um Ingress por host.
 ```bash
 docker build -t conveniencia/catalogo-service:1.0.0 ./catalogo-service
 docker build -t conveniencia/vendas-service:1.0.0 ./vendas-service
+
+# O frontend embute as URLs das APIs no build. Aponte para os hosts do ingress:
+docker build -t conveniencia/frontend:1.0.0 \
+  --build-arg VITE_CATALOGO_URL=http://catalogo.conveniencia.local \
+  --build-arg VITE_VENDAS_URL=http://vendas.conveniencia.local \
+  ./frontend
 ```
 
 Em cluster local (kind/minikube), carregue as imagens no cluster (senão o pod não
@@ -18,9 +24,11 @@ acha a imagem, pois não há registry):
 # kind
 kind load docker-image conveniencia/catalogo-service:1.0.0
 kind load docker-image conveniencia/vendas-service:1.0.0
+kind load docker-image conveniencia/frontend:1.0.0
 # minikube
 minikube image load conveniencia/catalogo-service:1.0.0
 minikube image load conveniencia/vendas-service:1.0.0
+minikube image load conveniencia/frontend:1.0.0
 ```
 
 ## 2. Aplicar
@@ -36,8 +44,10 @@ Com Ingress (ative o addon no minikube: `minikube addons enable ingress`), apont
 os hosts no seu `/etc/hosts`:
 
 ```
-127.0.0.1 catalogo.conveniencia.local vendas.conveniencia.local
+127.0.0.1 app.conveniencia.local catalogo.conveniencia.local vendas.conveniencia.local
 ```
+
+O frontend fica em `http://app.conveniencia.local`.
 
 Ou, sem Ingress, use port-forward:
 

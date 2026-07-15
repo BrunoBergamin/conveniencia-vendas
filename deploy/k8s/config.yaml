@@ -12,3 +12,5 @@ data:
   VENDAS_DB_USER: vendas
   # vendas -> catalogo
   CATALOGO_URL: http://catalogo-service:8081
+  # origem do frontend (para o CORS dos dois servicos)
+  CORS_ORIGINS: http://app.conveniencia.local

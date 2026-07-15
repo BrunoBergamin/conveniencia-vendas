@@ -51,6 +51,11 @@ spec:
                 configMapKeyRef:
                   name: conveniencia-config
                   key: CATALOGO_URL
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: conveniencia-config
+                  key: CORS_ORIGINS
           readinessProbe:
             httpGet:
               path: /q/health/ready

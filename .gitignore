@@ -1,0 +1,35 @@
+# Build
+target/
+build/
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+dist/
+
+# Quarkus
+.quarkus/
+quarkus.log
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs e temporarios
+*.log
+*.tmp
+
+# Segredos locais (nunca versionar)
+.env
+.env.local
+*.pem
+*.key

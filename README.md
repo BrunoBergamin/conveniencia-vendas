@@ -17,6 +17,27 @@ domínio das duas, e preparado para rodar em **Kubernetes**.
 > boas práticas de engenharia (Clean Architecture, DDD, testes, observabilidade,
 > resiliência) e a operação em contêineres e Kubernetes.
 
+## Interface
+
+Front-end **SPA em React + TypeScript** que consome os dois microserviços com o
+mesmo JWT. Layout de PDV com navegação lateral, tema escuro e componentes de
+dashboard (cards, tabelas, KPIs e indicadores de estado).
+
+<p align="center">
+  <img src="docs/img/02-produtos.png" alt="Catálogo de produtos com estoque" width="100%">
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/img/01-login.png" alt="Login"><br><sub><b>Login</b> com JWT emitido pelo catálogo</sub></td>
+    <td width="50%"><img src="docs/img/03-caixa.png" alt="Caixa por turno"><br><sub><b>Caixa por turno</b> com fundo de troco e estado</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/img/04-venda.png" alt="Nova venda"><br><sub><b>Nova venda</b>: carrinho, total e forma de pagamento</sub></td>
+    <td width="50%"><img src="docs/img/05-relatorio.png" alt="Relatório do dia"><br><sub><b>Relatório do dia</b>: faturamento e mais vendidos</sub></td>
+  </tr>
+</table>
+
 ## Arquitetura
 
 Dois serviços independentes, cada um dono do seu banco (padrão *database per

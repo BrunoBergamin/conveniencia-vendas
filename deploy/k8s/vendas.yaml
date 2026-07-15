@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vendas-service
+  namespace: conveniencia
+  labels:
+    app: vendas-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vendas-service
+  template:
+    metadata:
+      labels:
+        app: vendas-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /q/metrics
+        prometheus.io/port: "8082"
+    spec:
+      containers:
+        - name: vendas-service
+          image: conveniencia/vendas-service:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8082
+          env:
+            - name: DB_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: conveniencia-config
+                  key: VENDAS_DB_URL
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: conveniencia-config
+                  key: VENDAS_DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: conveniencia-secret
+                  key: VENDAS_DB_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: conveniencia-secret
+                  key: JWT_SECRET
+            - name: CATALOGO_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: conveniencia-config
+                  key: CATALOGO_URL
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 8082
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: 8082
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 150m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vendas-service
+  namespace: conveniencia
+spec:
+  selector:
+    app: vendas-service
+  ports:
+    - port: 8082
+      targetPort: 8082
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vendas-service
+  namespace: conveniencia
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vendas-service
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

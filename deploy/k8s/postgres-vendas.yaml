@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vendas-db-pvc
+  namespace: conveniencia
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vendas-db
+  namespace: conveniencia
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vendas-db
+  template:
+    metadata:
+      labels:
+        app: vendas-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: vendas_db
+            - name: POSTGRES_USER
+              value: vendas
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: conveniencia-secret
+                  key: VENDAS_DB_PASSWORD
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "vendas", "-d", "vendas_db"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: vendas-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vendas-db
+  namespace: conveniencia
+spec:
+  selector:
+    app: vendas-db
+  ports:
+    - port: 5432
+      targetPort: 5432

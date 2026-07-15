@@ -1,0 +1,55 @@
+name: conveniencia
+
+services:
+  catalogo-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: catalogo_db
+      POSTGRES_USER: catalogo
+      POSTGRES_PASSWORD: catalogo
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U catalogo -d catalogo_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  vendas-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: vendas_db
+      POSTGRES_USER: vendas
+      POSTGRES_PASSWORD: vendas
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vendas -d vendas_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  catalogo-service:
+    build: ./catalogo-service
+    environment:
+      DB_URL: jdbc:postgresql://catalogo-db:5432/catalogo_db
+      DB_USER: catalogo
+      DB_PASSWORD: catalogo
+      JWT_SECRET: ${JWT_SECRET:-segredo-de-desenvolvimento-conveniencia-32b+}
+    ports:
+      - "8081:8081"
+    depends_on:
+      catalogo-db:
+        condition: service_healthy
+
+  vendas-service:
+    build: ./vendas-service
+    environment:
+      DB_URL: jdbc:postgresql://vendas-db:5432/vendas_db
+      DB_USER: vendas
+      DB_PASSWORD: vendas
+      JWT_SECRET: ${JWT_SECRET:-segredo-de-desenvolvimento-conveniencia-32b+}
+      CATALOGO_URL: http://catalogo-service:8081
+    ports:
+      - "8082:8082"
+    depends_on:
+      vendas-db:
+        condition: service_healthy
+      catalogo-service:
+        condition: service_started

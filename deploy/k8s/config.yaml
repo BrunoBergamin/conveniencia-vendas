@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: conveniencia-config
+  namespace: conveniencia
+data:
+  # catalogo
+  CATALOGO_DB_URL: jdbc:postgresql://catalogo-db:5432/catalogo_db
+  CATALOGO_DB_USER: catalogo
+  # vendas
+  VENDAS_DB_URL: jdbc:postgresql://vendas-db:5432/vendas_db
+  VENDAS_DB_USER: vendas
+  # vendas -> catalogo
+  CATALOGO_URL: http://catalogo-service:8081

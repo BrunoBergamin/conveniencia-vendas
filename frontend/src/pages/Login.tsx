@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { catalogo, mensagemErro } from "../api";
+import { IconStore } from "../icons";
 
 export default function Login({ onEntrar }: { onEntrar: (token: string) => void }) {
   const [login, setLogin] = useState("gerente");
@@ -22,23 +23,33 @@ export default function Login({ onEntrar }: { onEntrar: (token: string) => void 
   }
 
   return (
-    <div className="login-wrap">
-      <form className="card login-card" onSubmit={submeter}>
-        <h1 className="marca-titulo">Conveniencia <span>PDV</span></h1>
-        <p className="muted">Entre para operar o caixa</p>
-        <label>
-          Usuario
+    <div className="login">
+      <form className="login-card" onSubmit={submeter}>
+        <div className="login-brand">
+          <span className="brand-mark"><IconStore size={20} /></span>
+          <span className="name">Conveniencia <span className="brand-tag">PDV</span></span>
+        </div>
+        <div className="login-title">Entrar no sistema</div>
+        <p className="login-sub">Acesse com seu usuario para operar o caixa.</p>
+
+        <label className="field">
+          <span>Usuario</span>
           <input value={login} onChange={(e) => setLogin(e.target.value)} autoFocus />
         </label>
-        <label>
-          Senha
+        <label className="field">
+          <span>Senha</span>
           <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} />
         </label>
-        {erro && <div className="erro">{erro}</div>}
-        <button className="primario" disabled={carregando}>
+
+        {erro && <div className="alert alert-erro">{erro}</div>}
+
+        <button className="btn btn-primary btn-block" disabled={carregando}>
           {carregando ? "Entrando..." : "Entrar"}
         </button>
-        <p className="dica">Demo: gerente / gerente123 ou operador / operador123</p>
+
+        <div className="login-hint">
+          Demo: <b>gerente / gerente123</b> ou <b>operador / operador123</b>
+        </div>
       </form>
     </div>
   );

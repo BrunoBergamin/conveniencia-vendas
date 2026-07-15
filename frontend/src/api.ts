@@ -16,6 +16,17 @@ export function getToken(): string | null {
   return token;
 }
 
+/** Le login e papel de dentro do JWT, sem chamar a API. */
+export function getUsuario(): { login: string; papel: string } | null {
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    return { login: payload.sub ?? "usuario", papel: payload.papel ?? "OPERADOR" };
+  } catch {
+    return null;
+  }
+}
+
 export function registrarLogout(fn: () => void) {
   aoDeslogar = fn;
 }

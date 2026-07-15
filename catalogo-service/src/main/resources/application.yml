@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: catalogo-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/catalogo_db}
+    username: ${DB_USER:catalogo}
+    password: ${DB_PASSWORD:catalogo}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+server:
+  port: ${SERVER_PORT:8081}
+
+jwt:
+  # Em producao vem do Secret do Kubernetes. HS256 exige no minimo 32 bytes.
+  secret: ${JWT_SECRET:segredo-de-desenvolvimento-conveniencia-32b+}
+  expiracao-segundos: ${JWT_EXPIRACAO_SEGUNDOS:3600}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html

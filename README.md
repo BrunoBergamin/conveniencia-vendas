@@ -149,8 +149,7 @@ Kubernetes (kustomize), GitHub Actions.
 
 ## Autor
 
-**Bruno Alves Bergamin** — BV DevOps
-[github.com/BrunoBergamin](https://github.com/BrunoBergamin) ·
-[bvdevops.com.br](https://bvdevops.com.br)
+**Bruno Alves Bergamin**
+[github.com/BrunoBergamin](https://github.com/BrunoBergamin)
 
-Licença [MIT](LICENSE).
+Projeto de portfólio, independente. Licença [MIT](LICENSE).

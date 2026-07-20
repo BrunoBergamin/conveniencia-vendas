@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record RegistrarVendaRequest(
+        @NotNull UUID chaveIdempotencia,
         @NotEmpty List<@Valid Item> itens,
         @NotNull FormaPagamento formaPagamento) {
 

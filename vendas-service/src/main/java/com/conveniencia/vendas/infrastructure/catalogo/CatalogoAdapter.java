@@ -17,12 +17,17 @@ import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Implementa a porta CatalogoPort chamando o catalogo-service via REST.
  * Protegido por timeout, retry e circuit breaker: se o catalogo cair, a venda
  * falha de forma limpa (CatalogoIndisponivel) em vez de travar.
  * Erro de negocio (sem estoque) nao dispara retry nem fallback.
+ *
+ * O retry so e seguro porque a baixa e IDEMPOTENTE no catalogo pela
+ * Idempotency-Key: se o primeiro request baixou mas a resposta se perdeu
+ * (timeout), o retry recebe a resposta gravada em vez de baixar de novo.
  */
 @ApplicationScoped
 public class CatalogoAdapter implements CatalogoPort {
@@ -36,12 +41,12 @@ public class CatalogoAdapter implements CatalogoPort {
     @Retry(maxRetries = 2, delay = 200, abortOn = SemEstoqueException.class)
     @CircuitBreaker(requestVolumeThreshold = 4, failureRatio = 0.5, delay = 5000)
     @Fallback(fallbackMethod = "indisponivel", skipOn = SemEstoqueException.class)
-    public ResultadoPrecificacao baixarEstoque(List<ItemRequisitado> itens, String autorizacao) {
+    public ResultadoPrecificacao baixarEstoque(UUID chave, List<ItemRequisitado> itens, String autorizacao) {
         EstoqueBaixaRequest req = new EstoqueBaixaRequest(itens.stream()
                 .map(i -> new EstoqueBaixaRequest.Item(i.produtoId(), i.quantidade()))
                 .toList());
         try {
-            EstoqueBaixaResponse resp = client.baixar(autorizacao, req);
+            EstoqueBaixaResponse resp = client.baixar(autorizacao, chave.toString(), req);
             List<ItemPrecificado> precificados = resp.itens().stream()
                     .map(i -> new ItemPrecificado(i.produtoId(), i.descricao(),
                             new Dinheiro(i.precoUnitario()), i.quantidade()))
@@ -56,8 +61,20 @@ public class CatalogoAdapter implements CatalogoPort {
         }
     }
 
+    /**
+     * Compensacao: repoe a baixa daquela chave. Idempotente no catalogo, entao
+     * o retry aqui tambem e seguro. Sem fallback de proposito: se falhar, o
+     * caso de uso loga o alerta de reconciliacao manual.
+     */
+    @Override
+    @Timeout(2000)
+    @Retry(maxRetries = 3, delay = 300)
+    public void estornarBaixa(UUID chave, String autorizacao) {
+        client.estornar(autorizacao, chave.toString());
+    }
+
     @SuppressWarnings("unused")
-    ResultadoPrecificacao indisponivel(List<ItemRequisitado> itens, String autorizacao) {
+    ResultadoPrecificacao indisponivel(UUID chave, List<ItemRequisitado> itens, String autorizacao) {
         throw new CatalogoIndisponivelException();
     }
 }

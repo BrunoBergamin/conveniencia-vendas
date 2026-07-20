@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { catalogo, vendas, mensagemErro } from "../api";
 import { FORMAS, type Produto, type Venda as VendaTipo } from "../types";
 import { brl } from "../util";
@@ -21,6 +21,10 @@ export default function Venda() {
   const [forma, setForma] = useState(FORMAS[0]);
   const [erro, setErro] = useState<string | null>(null);
   const [ultima, setUltima] = useState<VendaTipo | null>(null);
+  // Chave de idempotencia da venda em andamento: se a rede falhar e o operador
+  // clicar de novo, o backend reconhece a chave e NAO registra venda duplicada.
+  // So trocamos a chave depois de uma venda confirmada.
+  const chaveIdempotencia = useRef<string>(crypto.randomUUID());
 
   useEffect(() => {
     catalogo
@@ -51,12 +55,14 @@ export default function Venda() {
     setUltima(null);
     try {
       const body = {
+        chaveIdempotencia: chaveIdempotencia.current,
         itens: carrinho.map((it) => ({ produtoId: it.produto.id, quantidade: it.quantidade })),
         formaPagamento: forma,
       };
       const { data } = await vendas.post<VendaTipo>("/vendas", body);
       setUltima(data);
       setCarrinho([]);
+      chaveIdempotencia.current = crypto.randomUUID();
     } catch (e) {
       setErro(mensagemErro(e));
     }

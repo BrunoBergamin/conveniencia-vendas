@@ -23,6 +23,9 @@ class VendaEntity {
     @Id
     UUID id;
 
+    @Column(name = "chave_idempotencia", nullable = false, unique = true)
+    UUID chaveIdempotencia;
+
     @Column(name = "caixa_id", nullable = false)
     UUID caixaId;
 

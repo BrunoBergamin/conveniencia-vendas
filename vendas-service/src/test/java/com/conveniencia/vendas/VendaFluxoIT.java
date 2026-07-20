@@ -65,15 +65,29 @@ class VendaFluxoIT {
 
         // catalogo devolve o item precificado (mock)
         UUID produto = UUID.randomUUID();
-        when(catalogo.baixarEstoque(any(), any())).thenReturn(new ResultadoPrecificacao(
+        when(catalogo.baixarEstoque(any(), any(), any())).thenReturn(new ResultadoPrecificacao(
                 List.of(new ItemPrecificado(produto, "Coca 350ml", Dinheiro.de("5.50"), 2))));
 
         // registra a venda
-        given().header("Authorization", "Bearer " + jwt)
+        UUID chave = UUID.randomUUID();
+        String corpo = "{\"chaveIdempotencia\":\"" + chave + "\",\"itens\":[{\"produtoId\":\""
+                + produto + "\",\"quantidade\":2}],\"formaPagamento\":\"PIX\"}";
+        String id = given().header("Authorization", "Bearer " + jwt)
                 .contentType("application/json")
-                .body("{\"itens\":[{\"produtoId\":\"" + produto + "\",\"quantidade\":2}],\"formaPagamento\":\"PIX\"}")
+                .body(corpo)
                 .when().post("/vendas")
                 .then().statusCode(201)
+                .body("total", equalTo(11.00f))
+                .extract().path("id");
+
+        // IDEMPOTENCIA: repetir a MESMA requisicao (retry / clique duplo) NAO
+        // cria outra venda — devolve a mesma, com o mesmo id.
+        given().header("Authorization", "Bearer " + jwt)
+                .contentType("application/json")
+                .body(corpo)
+                .when().post("/vendas")
+                .then().statusCode(201)
+                .body("id", equalTo(id))
                 .body("total", equalTo(11.00f));
     }
 
@@ -81,12 +95,11 @@ class VendaFluxoIT {
     void vendaSemCaixaAbertoRetorna409() {
         String jwt = token("op-sem-caixa", "OPERADOR");
         UUID produto = UUID.randomUUID();
-        when(catalogo.baixarEstoque(any(), any())).thenReturn(new ResultadoPrecificacao(
-                List.of(new ItemPrecificado(produto, "X", Dinheiro.de("1.00"), 1))));
 
         given().header("Authorization", "Bearer " + jwt)
                 .contentType("application/json")
-                .body("{\"itens\":[{\"produtoId\":\"" + produto + "\",\"quantidade\":1}],\"formaPagamento\":\"DINHEIRO\"}")
+                .body("{\"chaveIdempotencia\":\"" + UUID.randomUUID() + "\",\"itens\":[{\"produtoId\":\""
+                        + produto + "\",\"quantidade\":1}],\"formaPagamento\":\"DINHEIRO\"}")
                 .when().post("/vendas")
                 .then().statusCode(409)
                 .body("erro", equalTo("CAIXA_NAO_ABERTO"));

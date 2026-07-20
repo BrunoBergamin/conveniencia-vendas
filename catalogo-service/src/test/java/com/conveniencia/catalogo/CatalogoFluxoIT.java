@@ -54,9 +54,13 @@ class CatalogoFluxoIT extends AbstractPostgresIT {
         assertEquals(10, entrada.getBody().quantidade());
 
         // baixa 4 pelo endpoint interno (o que o vendas-service usa)
+        UUID chave = UUID.randomUUID();
+        HttpHeaders comChave = new HttpHeaders();
+        comChave.putAll(gerente);
+        comChave.set("Idempotency-Key", chave.toString());
         var baixaReq = new BaixarEstoqueRequest(List.of(new BaixarEstoqueRequest.Item(id, 4)));
         var baixa = rest.exchange("/internal/estoque/baixar", HttpMethod.POST,
-                new HttpEntity<>(baixaReq, gerente), BaixarEstoqueResponse.class);
+                new HttpEntity<>(baixaReq, comChave), BaixarEstoqueResponse.class);
         assertEquals(200, baixa.getStatusCode().value());
         assertEquals(new BigDecimal("3.00"), baixa.getBody().itens().get(0).precoUnitario());
 
@@ -64,6 +68,33 @@ class CatalogoFluxoIT extends AbstractPostgresIT {
         var consulta = rest.exchange("/estoque/" + id, HttpMethod.GET,
                 new HttpEntity<>(gerente), EstoqueResponse.class);
         assertEquals(6, consulta.getBody().quantidade());
+
+        // IDEMPOTENCIA: repetir a MESMA chave (retry) devolve a mesma resposta
+        // e NAO baixa o estoque de novo — continua 6.
+        var replay = rest.exchange("/internal/estoque/baixar", HttpMethod.POST,
+                new HttpEntity<>(baixaReq, comChave), BaixarEstoqueResponse.class);
+        assertEquals(200, replay.getStatusCode().value());
+        assertEquals(baixa.getBody().itens(), replay.getBody().itens());
+        assertEquals(6, rest.exchange("/estoque/" + id, HttpMethod.GET,
+                new HttpEntity<>(gerente), EstoqueResponse.class).getBody().quantidade());
+
+        // COMPENSACAO: o estorno repoe exatamente o que a baixa tirou — volta a 10.
+        var estorno = rest.exchange("/internal/estoque/estornar", HttpMethod.POST,
+                new HttpEntity<>(null, comChave), String.class);
+        assertEquals(200, estorno.getStatusCode().value());
+        assertEquals(10, rest.exchange("/estoque/" + id, HttpMethod.GET,
+                new HttpEntity<>(gerente), EstoqueResponse.class).getBody().quantidade());
+
+        // Estornar de novo e no-op: segue 10.
+        rest.exchange("/internal/estoque/estornar", HttpMethod.POST,
+                new HttpEntity<>(null, comChave), String.class);
+        assertEquals(10, rest.exchange("/estoque/" + id, HttpMethod.GET,
+                new HttpEntity<>(gerente), EstoqueResponse.class).getBody().quantidade());
+
+        // Chave estornada nao pode ser rebaixada (retry tardio) — 409.
+        var rebaixa = rest.exchange("/internal/estoque/baixar", HttpMethod.POST,
+                new HttpEntity<>(baixaReq, comChave), String.class);
+        assertEquals(409, rebaixa.getStatusCode().value());
     }
 
     @Test

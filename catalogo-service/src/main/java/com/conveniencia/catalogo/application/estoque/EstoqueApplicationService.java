@@ -8,6 +8,7 @@ import com.conveniencia.catalogo.domain.shared.EntidadeNaoEncontradaException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -15,6 +16,9 @@ import java.util.UUID;
 /** Casos de uso de estoque: consultar, dar entrada, baixar na venda e estornar. */
 @Service
 public class EstoqueApplicationService {
+
+    /** Tamanho do lote devolvido ao job de reconciliacao por consulta. */
+    static final int MAX_OPERACOES_POR_CONSULTA = 100;
 
     private final EstoqueRepository estoques;
     private final ProdutoRepository produtos;
@@ -75,6 +79,16 @@ public class EstoqueApplicationService {
         }
         operacoes.salvar(OperacaoEstoque.efetivada(chave, aplicados));
         return new ResultadoBaixa(aplicados);
+    }
+
+    /**
+     * Chaves de baixas EFETIVADAS anteriores ao limite, para o job de
+     * reconciliacao do vendas-service conferir se cada uma tem venda
+     * correspondente. Limitado por consulta para o job trabalhar em lotes.
+     */
+    @Transactional(readOnly = true)
+    public List<UUID> baixasEfetivadasAntesDe(Instant limite) {
+        return operacoes.chavesEfetivadasAntesDe(limite, MAX_OPERACOES_POR_CONSULTA);
     }
 
     /**

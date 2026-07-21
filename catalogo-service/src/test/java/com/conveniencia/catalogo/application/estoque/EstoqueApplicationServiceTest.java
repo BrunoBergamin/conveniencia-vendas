@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -42,6 +43,16 @@ class EstoqueApplicationServiceTest {
 
     private Produto produto(UUID id) {
         return Produto.reconstituir(id, "789", "Coca", Preco.de("5.50"), Categoria.BEBIDA, true);
+    }
+
+    @Test
+    void baixasEfetivadasConsultamComLimiteDeLote() {
+        Instant limite = Instant.parse("2026-07-21T12:00:00Z");
+        List<UUID> chaves = List.of(UUID.randomUUID(), UUID.randomUUID());
+        when(operacoes.chavesEfetivadasAntesDe(limite, EstoqueApplicationService.MAX_OPERACOES_POR_CONSULTA))
+                .thenReturn(chaves);
+
+        assertEquals(chaves, service.baixasEfetivadasAntesDe(limite));
     }
 
     @Test

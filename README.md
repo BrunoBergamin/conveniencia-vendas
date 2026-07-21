@@ -96,6 +96,12 @@ venda no vendas) — e rede no meio. Dois problemas clássicos são tratados:
    o `vendas-service` **compensa**: pede o estorno da baixa (saga de dois passos).
    O estorno repõe exatamente o que a baixa tirou e também é idempotente —
    estornar duas vezes não repõe duas vezes.
+3. **Baixas órfãs:** um **job de reconciliação** roda periodicamente no
+   `vendas-service`, pergunta ao catálogo quais baixas antigas estão efetivadas
+   e estorna as que não têm venda correspondente — cobre o processo morrer entre
+   a baixa e o salvar, e o próprio estorno da compensação falhar. Usa um token
+   de serviço e só olha baixas mais velhas que uma idade mínima, para não tocar
+   em vendas em andamento.
 
 ```mermaid
 sequenceDiagram
@@ -120,9 +126,11 @@ sequenceDiagram
 
 A transação com o banco local é **curta e não engloba a chamada remota** (nada
 de segurar conexão aberta esperando HTTP). O pior caso — baixa sem venda e
-estorno também falhando — fica gritante no log para reconciliação. Todos esses
-cenários têm teste: replay de baixa, estorno, estorno duplo, corrida de chave
-duplicada e compensação disparada por falha de persistência.
+estorno também falhando — fica gritante no log e é **resolvido sozinho pelo job
+de reconciliação na rodada seguinte**. Todos esses cenários têm teste: replay
+de baixa, estorno, estorno duplo, corrida de chave duplicada, compensação
+disparada por falha de persistência e a reconciliação (baixa com venda fica em
+paz, órfã é estornada, falha em um estorno não derruba a rodada).
 
 ## Funcionalidades
 

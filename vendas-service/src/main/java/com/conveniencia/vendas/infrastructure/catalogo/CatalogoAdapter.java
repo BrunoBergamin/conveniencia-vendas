@@ -16,6 +16,7 @@ import org.eclipse.microprofile.faulttolerance.Retry;
 import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -71,6 +72,17 @@ public class CatalogoAdapter implements CatalogoPort {
     @Retry(maxRetries = 3, delay = 300)
     public void estornarBaixa(UUID chave, String autorizacao) {
         client.estornar(autorizacao, chave.toString());
+    }
+
+    /**
+     * Consulta do job de reconciliacao. Sem fallback: se o catalogo estiver
+     * fora, o job pula a rodada e tenta na proxima.
+     */
+    @Override
+    @Timeout(2000)
+    @Retry(maxRetries = 2, delay = 200)
+    public List<UUID> baixasEfetivadasAntesDe(Instant limite, String autorizacao) {
+        return client.operacoesEfetivadas(autorizacao, limite.toString()).chaves();
     }
 
     @SuppressWarnings("unused")

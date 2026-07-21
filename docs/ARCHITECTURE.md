@@ -85,8 +85,17 @@ baixado, venda não gravada). A solução tem três peças:
 
 Corrida entre requisições com a mesma chave é resolvida no banco: a constraint
 unique derruba a segunda, e o código devolve o registro que ganhou a corrida.
-Pior caso da saga (baixa sem venda e estorno falhou): log `RECONCILIAR` em nível
-de erro, para reconciliação manual ou um futuro job de reconciliação.
+
+**Job de reconciliação** (rede de segurança da saga): um agendamento no
+`vendas-service` roda periodicamente, busca no catálogo as baixas efetivadas
+antigas (`GET /internal/estoque/operacoes-efetivadas`), confere se cada chave
+tem venda correspondente e **estorna as órfãs**. Isso cobre os dois buracos que
+a compensação inline não alcança: o processo morrer entre a baixa e o salvar da
+venda, e o próprio estorno da compensação falhar (o log `RECONCILIAR`). O job
+usa um **token de serviço** (HS256 com o segredo compartilhado da decisão 4,
+subject `vendas-service`) e só considera baixas mais velhas que uma idade
+mínima configurável, para nunca tocar em vendas em andamento. Como baixa e
+estorno são idempotentes, rodar o job repetidamente é seguro por construção.
 
 ## Contrato entre serviços
 
@@ -129,6 +138,17 @@ Idempotency-Key: <uuid da venda>
 
 Resposta: `200 OK` com `{ "estornada": true }` quando a baixa foi reposta, ou
 `{ "estornada": false }` como *no-op* (chave desconhecida ou já estornada antes).
+
+### Listar baixas efetivadas (job de reconciliação)
+
+```
+GET /internal/estoque/operacoes-efetivadas?antesDe=2026-07-21T12:00:00Z
+Authorization: Bearer <jwt de serviço>
+```
+
+Resposta: `200 OK` com `{ "chaves": ["uuid", ...] }` — as baixas `EFETIVADA`
+criadas antes do instante, das mais antigas para as mais novas, em lotes de até
+100. O `vendas-service` confere cada chave e estorna as que não têm venda.
 
 ### Consultar produto
 

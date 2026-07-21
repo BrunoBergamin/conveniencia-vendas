@@ -39,9 +39,11 @@ não registrar venda de item sem saldo. A chamada é protegida por timeout, retr
 circuit breaker; se o catálogo estiver fora, a venda falha de forma limpa (não
 grava pela metade).
 
-> Evolução natural: trocar por saga/mensageria (Kafka) com reserva e confirmação,
-> para desacoplar. Ficou fora do escopo para manter o projeto legível; a fronteira
-> já está isolada num *port* de saída, então a troca é local.
+> A chamada síncrona continua, mas hoje ela é **idempotente e compensável**
+> (ver decisão 6), o que fecha as brechas de retry duplicado e de falha no meio
+> do caminho. Evolução natural: trocar por mensageria (Kafka) com reserva e
+> confirmação, para desacoplar de vez; a fronteira já está isolada num *port*
+> de saída, então a troca é local.
 
 ### 4. Autenticação no catálogo, validação nos dois
 
@@ -60,6 +62,32 @@ Camadas: `domain` (entidades, objetos de valor, regras, sem framework) → `appl
 `api` (controllers/resources, DTOs). A dependência aponta sempre para dentro: o
 domínio não conhece Spring, Quarkus nem Postgres.
 
+### 6. Idempotência ponta a ponta e compensação (saga)
+
+A venda é uma mini-saga de dois passos (baixa de estoque remota + persistência
+local), e dois problemas clássicos aparecem: **retry duplicado** (timeout na
+primeira chamada + retry = baixa dupla) e **falha no meio do caminho** (estoque
+baixado, venda não gravada). A solução tem três peças:
+
+1. **Chave de idempotência ponta a ponta**: o frontend gera um UUID por venda e
+   só troca a chave depois de venda confirmada. O `vendas-service` deduplica o
+   registro por essa chave (constraint unique no banco) e a repassa ao catálogo
+   no header `Idempotency-Key`.
+2. **Baixa idempotente no catálogo**: cada baixa é registrada na tabela
+   `operacao_estoque` com a chave única. Se a mesma chave chegar de novo (retry
+   após timeout), o catálogo devolve a resposta gravada da primeira vez, sem
+   baixar o estoque outra vez. É isso que torna o retry automático seguro.
+3. **Compensação**: se a persistência da venda falhar depois do estoque baixado,
+   o `vendas-service` pede o estorno da baixa (`POST /internal/estoque/estornar`
+   com a mesma chave). O estorno repõe exatamente o que a baixa tirou, marca a
+   operação como `ESTORNADA` e também é idempotente: estornar duas vezes não
+   repõe duas vezes, e estornar chave desconhecida é *no-op*.
+
+Corrida entre requisições com a mesma chave é resolvida no banco: a constraint
+unique derruba a segunda, e o código devolve o registro que ganhou a corrida.
+Pior caso da saga (baixa sem venda e estorno falhou): log `RECONCILIAR` em nível
+de erro, para reconciliação manual ou um futuro job de reconciliação.
+
 ## Contrato entre serviços
 
 O `vendas-service` consome estas rotas do `catalogo-service`:
@@ -69,6 +97,7 @@ O `vendas-service` consome estas rotas do `catalogo-service`:
 ```
 POST /internal/estoque/baixar
 Authorization: Bearer <jwt>
+Idempotency-Key: <uuid da venda>
 Content-Type: application/json
 
 {
@@ -84,8 +113,22 @@ Respostas:
   ```json
   { "itens": [ { "produtoId": "uuid", "descricao": "Coca 350ml", "precoUnitario": 5.50, "quantidade": 2 } ] }
   ```
+  Chave repetida (retry) devolve `200 OK` com a resposta gravada da primeira
+  operação, sem baixar o estoque de novo.
 - `409 Conflict` se algum item não tem saldo (`{ "erro": "SEM_ESTOQUE", "produtoId": "uuid" }`).
+- `409 Conflict` se a chave já foi estornada (`{ "erro": "OPERACAO_ESTORNADA" }`).
 - `404 Not Found` se o produto não existe.
+
+### Estornar baixa (compensação de venda que falhou)
+
+```
+POST /internal/estoque/estornar
+Authorization: Bearer <jwt>
+Idempotency-Key: <uuid da venda>
+```
+
+Resposta: `200 OK` com `{ "estornada": true }` quando a baixa foi reposta, ou
+`{ "estornada": false }` como *no-op* (chave desconhecida ou já estornada antes).
 
 ### Consultar produto
 
@@ -102,11 +145,13 @@ conseguir forjar preço.
 **catalogo-service**
 - `Produto` (id, codigoBarras, descricao, `Preco` (VO), `Categoria`, ativo)
 - `Estoque` (produtoId, quantidade) com invariante: quantidade nunca negativa
+- `OperacaoEstoque` (chave unique, itens baixados, status: EFETIVADA | ESTORNADA),
+  o registro que dá idempotência à baixa e permite o estorno exato (decisão 6)
 - `Usuario` (login, senha hash, `Papel`: OPERADOR | GERENTE)
 
 **vendas-service**
 - `Caixa` (id, operador, aberturaEm, `Dinheiro` fundoTroco, status: ABERTO | FECHADO)
-- `Venda` (id, caixaId, `List<ItemVenda>`, `FormaPagamento`, total, criadaEm)
+- `Venda` (id, chaveIdempotencia unique, caixaId, `List<ItemVenda>`, `FormaPagamento`, total, criadaEm)
 - `ItemVenda` (produtoId, descricao, `Dinheiro` precoUnitario, quantidade)
 - Invariante: venda só é aceita com um caixa ABERTO do operador.
 

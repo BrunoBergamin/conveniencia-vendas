@@ -17,5 +17,16 @@ public interface CatalogoEstoqueClient {
     @Path("/baixar")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    EstoqueBaixaResponse baixar(@HeaderParam("Authorization") String autorizacao, EstoqueBaixaRequest req);
+    EstoqueBaixaResponse baixar(@HeaderParam("Authorization") String autorizacao,
+                                @HeaderParam("Idempotency-Key") String chave,
+                                EstoqueBaixaRequest req);
+
+    @POST
+    @Path("/estornar")
+    @Produces(MediaType.APPLICATION_JSON)
+    EstornoResponse estornar(@HeaderParam("Authorization") String autorizacao,
+                             @HeaderParam("Idempotency-Key") String chave);
+
+    record EstornoResponse(boolean estornada) {
+    }
 }

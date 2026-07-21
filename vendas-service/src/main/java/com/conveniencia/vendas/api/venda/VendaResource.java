@@ -29,12 +29,13 @@ public class VendaResource {
     UsuarioAutenticado usuario;
 
     @POST
-    @Operation(summary = "Registra uma venda no caixa aberto do operador")
+    @Operation(summary = "Registra uma venda no caixa aberto do operador (idempotente pela chave)")
     public Response registrar(@Valid RegistrarVendaRequest req) {
         List<ItemRequisitado> itens = req.itens().stream()
                 .map(i -> new ItemRequisitado(i.produtoId(), i.quantidade()))
                 .toList();
-        Venda venda = vendas.registrar(usuario.login(), itens, req.formaPagamento(), usuario.autorizacao());
+        Venda venda = vendas.registrar(usuario.login(), req.chaveIdempotencia(), itens,
+                req.formaPagamento(), usuario.autorizacao());
         return Response.status(Response.Status.CREATED).entity(VendaResponse.de(venda)).build();
     }
 }

@@ -72,12 +72,57 @@ relatorios.
   e a decisão está documentada em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - **Comunicação entre serviços:** ao registrar uma venda, o `vendas-service`
   chama o `catalogo-service` para validar o produto e **dar baixa no estoque**,
-  com *timeout*, *retry* e *circuit breaker* (fault tolerance).
+  com *timeout*, *retry* e *circuit breaker* (fault tolerance). A baixa é
+  **idempotente** por `Idempotency-Key` e tem **estorno de compensação** — ver a
+  seção de consistência abaixo.
 - **Banco por serviço:** cada serviço tem seu PostgreSQL e suas migrações Flyway.
   Nada de banco compartilhado.
 
 Detalhes das decisões, contexto delimitado e contrato entre serviços em
 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
+
+## Consistência entre serviços: idempotência + compensação (saga)
+
+Registrar uma venda envolve **dois bancos diferentes** (estoque no catálogo,
+venda no vendas) — e rede no meio. Dois problemas clássicos são tratados:
+
+1. **Retry duplicando estoque:** o retry automático só é seguro porque a baixa é
+   **idempotente**: o frontend gera uma `Idempotency-Key` por venda, o catálogo
+   grava cada operação processada e, se a mesma chave chegar de novo (timeout,
+   clique duplo), devolve a resposta gravada **sem baixar de novo**. A mesma
+   chave torna o registro da venda idempotente no `vendas-service` (constraint
+   `unique` no banco garante, mesmo sob concorrência).
+2. **Falha no meio do caminho:** se a venda falhar **depois** do estoque baixado,
+   o `vendas-service` **compensa**: pede o estorno da baixa (saga de dois passos).
+   O estorno repõe exatamente o que a baixa tirou e também é idempotente —
+   estornar duas vezes não repõe duas vezes.
+
+```mermaid
+sequenceDiagram
+    participant F as Frontend (PDV)
+    participant V as vendas-service
+    participant C as catalogo-service
+
+    F->>V: POST /vendas (chave K, itens)
+    V->>V: já existe venda com K? (retry) → devolve a mesma
+    V->>C: POST /internal/estoque/baixar (Idempotency-Key: K)
+    C->>C: K já processada? → devolve resposta gravada (não baixa de novo)
+    C-->>V: itens precificados
+    V->>V: salva a venda (transação local curta, chave K unique)
+    alt persistência falha
+        V->>C: POST /internal/estoque/estornar (K)  — compensação
+        C->>C: repõe exatamente o que K baixou (idempotente)
+        V-->>F: erro (nada ficou pela metade)
+    else sucesso
+        V-->>F: 201 venda registrada
+    end
+```
+
+A transação com o banco local é **curta e não engloba a chamada remota** (nada
+de segurar conexão aberta esperando HTTP). O pior caso — baixa sem venda e
+estorno também falhando — fica gritante no log para reconciliação. Todos esses
+cenários têm teste: replay de baixa, estorno, estorno duplo, corrida de chave
+duplicada e compensação disparada por falha de persistência.
 
 ## Funcionalidades
 
@@ -150,6 +195,9 @@ O que este repositório demonstra de propósito:
 - **Observabilidade:** health checks (liveness e readiness) e métricas Prometheus
   em ambos, prontos para o Kubernetes.
 - **Resiliência:** timeout, retry e circuit breaker na chamada entre serviços.
+- **Consistência distribuída:** idempotência por `Idempotency-Key` de ponta a
+  ponta e saga com **compensação** (estorno da baixa) quando a venda falha no
+  meio — retry nunca duplica venda nem estoque.
 - **Migrações versionadas:** Flyway em cada serviço, banco reproduzível.
 - **Contrato explícito:** OpenAPI/Swagger gerado em cada serviço.
 - **12-Factor:** configuração por variável de ambiente, segredos fora do código,

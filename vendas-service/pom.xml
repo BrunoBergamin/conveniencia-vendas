@@ -103,6 +103,12 @@
             <artifactId>quarkus-smallrye-fault-tolerance</artifactId>
         </dependency>
 
+        <!-- Job periodico de reconciliacao (saga da venda) -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-scheduler</artifactId>
+        </dependency>
+
         <!-- Observabilidade -->
         <dependency>
             <groupId>io.quarkus</groupId>

@@ -1,5 +1,6 @@
 package com.conveniencia.vendas.application.venda;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,4 +15,7 @@ import java.util.UUID;
 public interface CatalogoPort {
     ResultadoPrecificacao baixarEstoque(UUID chave, List<ItemRequisitado> itens, String autorizacao);
     void estornarBaixa(UUID chave, String autorizacao);
+
+    /** Chaves de baixas efetivadas antes do limite (job de reconciliacao). */
+    List<UUID> baixasEfetivadasAntesDe(Instant limite, String autorizacao);
 }

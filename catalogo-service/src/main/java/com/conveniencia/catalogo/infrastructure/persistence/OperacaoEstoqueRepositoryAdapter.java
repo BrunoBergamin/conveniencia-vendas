@@ -8,9 +8,11 @@ import com.conveniencia.catalogo.domain.produto.Preco;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,6 +40,11 @@ class OperacaoEstoqueRepositoryAdapter implements OperacaoEstoqueRepository {
     @Override
     public Optional<OperacaoEstoque> buscarPorChave(UUID chave) {
         return jpa.findByChave(chave).map(this::paraDominio);
+    }
+
+    @Override
+    public List<UUID> chavesEfetivadasAntesDe(Instant limite, int max) {
+        return jpa.chavesEfetivadasAntesDe(limite, PageRequest.of(0, max));
     }
 
     @Override
